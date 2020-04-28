@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class Gen_Data_loader():
+class Gen_Data_loader(object):
     def __init__(self, batch_size):
         self.batch_size = batch_size
         self.token_stream = []
@@ -16,7 +16,7 @@ class Gen_Data_loader():
                 if len(parse_line) == 20:
                     self.token_stream.append(parse_line)
 
-        self.num_batch = int(len(self.token_stream) / self.batch_size)
+        self.num_batch = len(self.token_stream) // self.batch_size
         self.token_stream = self.token_stream[:self.num_batch * self.batch_size]
         self.sequence_batch = np.split(np.array(self.token_stream), self.num_batch, 0)
         self.pointer = 0
@@ -30,7 +30,7 @@ class Gen_Data_loader():
         self.pointer = 0
 
 
-class Dis_dataloader():
+class Dis_dataloader(object):
     def __init__(self, batch_size):
         self.batch_size = batch_size
         self.sentences = np.array([])
@@ -66,7 +66,7 @@ class Dis_dataloader():
         self.labels = self.labels[shuffle_indices]
 
         # Split batches
-        self.num_batch = int(len(self.labels) / self.batch_size)
+        self.num_batch = len(self.labels) // self.batch_size
         self.sentences = self.sentences[:self.num_batch * self.batch_size]
         self.labels = self.labels[:self.num_batch * self.batch_size]
         self.sentences_batches = np.split(self.sentences, self.num_batch, 0)

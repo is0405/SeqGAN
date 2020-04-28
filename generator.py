@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.python.ops import tensor_array_ops, control_flow_ops
 
 
@@ -100,7 +100,7 @@ class Generator(object):
         pretrain_opt = self.g_optimizer(self.learning_rate)
 
         self.pretrain_grad, _ = tf.clip_by_global_norm(tf.gradients(self.pretrain_loss, self.g_params), self.grad_clip)
-        self.pretrain_updates = pretrain_opt.apply_gradients(zip(self.pretrain_grad, self.g_params))
+        self.pretrain_updates = pretrain_opt.apply_gradients(list(zip(self.pretrain_grad, self.g_params)))
 
         #######################################################################################################
         #  Unsupervised Training
@@ -115,7 +115,7 @@ class Generator(object):
         g_opt = self.g_optimizer(self.learning_rate)
 
         self.g_grad, _ = tf.clip_by_global_norm(tf.gradients(self.g_loss, self.g_params), self.grad_clip)
-        self.g_updates = g_opt.apply_gradients(zip(self.g_grad, self.g_params))
+        self.g_updates = g_opt.apply_gradients(list(zip(self.g_grad, self.g_params)))
 
     def generate(self, sess):
         outputs = sess.run(self.gen_x)

@@ -1,8 +1,8 @@
 # SeqGAN
 
 ## Requirements: 
-* **Tensorflow r1.0.1**
-* Python 2.7
+* **Tensorflow r2.1.0**
+* Python 3.6
 * CUDA 7.5+ (For GPU)
 
 ## Introduction
