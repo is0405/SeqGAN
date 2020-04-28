@@ -87,6 +87,7 @@ def pre_train_epoch(sess, trainable_model, data_loader):
 def main():
     random.seed(SEED)
     np.random.seed(SEED)
+    tf.random.set_seed(SEED)
     assert START_TOKEN == 0
 
     gen_data_loader = Gen_Data_loader(BATCH_SIZE)
