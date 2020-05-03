@@ -1,0 +1,6 @@
+/save/*.txt
+/figure/*
+__pycache__
+*.pyc
+*~
+*.old
