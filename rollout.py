@@ -13,7 +13,7 @@ class ROLLOUT(object):
         self.emb_dim = self.lstm.emb_dim
         self.hidden_dim = self.lstm.hidden_dim
         self.sequence_length = self.lstm.sequence_length
-        self.start_token = tf.identity(self.lstm.start_token)
+        self.start_token_vec = tf.identity(self.lstm.start_token_vec)
         self.learning_rate = self.lstm.learning_rate
 
         self.g_embeddings = tf.identity(self.lstm.g_embeddings)
@@ -64,7 +64,7 @@ class ROLLOUT(object):
             cond=lambda i, _1, _2, given_num, _4: i < given_num,
             body=_g_recurrence_1,
             loop_vars=(tf.constant(0, dtype=tf.int32),
-                       tf.nn.embedding_lookup(self.g_embeddings, self.start_token), self.h0, self.given_num, gen_x))
+                       tf.nn.embedding_lookup(self.g_embeddings, self.start_token_vec), self.h0, self.given_num, gen_x))
 
         _, _, _, _, self.gen_x = control_flow_ops.while_loop(
             cond=lambda i, _1, _2, _3, _4: i < self.sequence_length,

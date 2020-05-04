@@ -182,9 +182,9 @@ class TARGET_LSTM(object):
         h0 = tf.stack([h0, h0])
 
         # generator on initial randomness
-        gen_o = tensor_array_ops.TensorArray(dtype=tf.float32, size=self.sequence_length,
+        gen_o = tf.TensorArray(dtype=tf.float32, size=self.sequence_length,
                                              dynamic_size=False, infer_shape=True)
-        gen_x = tensor_array_ops.TensorArray(dtype=tf.int32, size=self.sequence_length,
+        gen_x = tf.TensorArray(dtype=tf.int32, size=self.sequence_length,
                                              dynamic_size=False, infer_shape=True)
 
         def _g_recurrence(i, x_t, h_tm1, gen_o, gen_x):
