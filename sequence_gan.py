@@ -7,7 +7,7 @@ import tensorflow as tf
 
 import os
 import random
-from dataloader import Gen_Data_loader, Dis_dataloader
+from dataloader import dataset_for_generator, dataset_for_discriminator
 from generator import Generator
 from discriminator import Discriminator
 from rollout import ROLLOUT
@@ -57,30 +57,22 @@ def generate_samples(trainable_model, batch_size, generated_num, output_file):
             fout.write(buffer)
 
 
-def target_loss(target_lstm, data_loader):
+def target_loss(target_lstm, dataset):
     # target_loss means the oracle negative log-likelihood tested with the oracle model "target_lstm"
     # For more details, please see the Section 4 in https://arxiv.org/abs/1609.05473
     nll = []
-    data_loader.reset_pointer()
-
-    for it in range(data_loader.num_batch):
-        batch = data_loader.next_batch()
+    for batch in dataset:
         g_loss = target_lstm.pretrain_loss(batch)
         nll.append(g_loss)
-
     return np.mean(nll)
 
 
-def pre_train_epoch(trainable_model, data_loader):
+def pre_train_epoch(trainable_model, dataset):
     # Pre-train the generator using MLE for one epoch
     supervised_g_losses = []
-    data_loader.reset_pointer()
-
-    for it in range(data_loader.num_batch):
-        batch = data_loader.next_batch()
+    for batch in dataset:
         g_loss = trainable_model.pretrain_step(batch)
         supervised_g_losses.append(g_loss)
-
     return np.mean(supervised_g_losses)
 
 
@@ -90,10 +82,7 @@ def main():
     tf.random.set_seed(SEED)
     assert START_TOKEN == 0
 
-    gen_data_loader = Gen_Data_loader(BATCH_SIZE)
-    likelihood_data_loader = Gen_Data_loader(BATCH_SIZE) # For testing
     vocab_size = 5000
-    dis_data_loader = Dis_dataloader(BATCH_SIZE)
 
     generator = Generator(vocab_size, BATCH_SIZE, EMB_DIM, HIDDEN_DIM, SEQ_LENGTH, START_TOKEN)
     target_params = pickle.load(open('save/target_params.pkl', 'rb'), encoding="bytes")
@@ -111,7 +100,7 @@ def main():
     # First, use the oracle model to provide the positive examples, which are sampled from the oracle data distribution
     if not os.path.exists(positive_file):
         generate_samples(target_lstm, BATCH_SIZE, generated_num, positive_file)
-    gen_data_loader.create_batches(positive_file)
+    gen_dataset = dataset_for_generator(positive_file, BATCH_SIZE)
 
     log = open('save/experiment-log.txt', 'w')
     #  pre-train generator
@@ -119,12 +108,12 @@ def main():
         print('Start pre-training...')
         log.write('pre-training...\n')
         for epoch in range(PRE_EPOCH_NUM):
-            loss = pre_train_epoch(generator, gen_data_loader)
+            loss = pre_train_epoch(generator, gen_dataset)
             print(loss)
             if epoch % 5 == 0:
                 generate_samples(generator, BATCH_SIZE, generated_num, eval_file)
-                likelihood_data_loader.create_batches(eval_file)
-                test_loss = target_loss(target_lstm, likelihood_data_loader)
+                likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
+                test_loss = target_loss(target_lstm, likelihood_dataset)
                 print('pre-train epoch ', epoch, 'test_loss ', test_loss)
                 buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
                 log.write(buffer)
@@ -138,12 +127,10 @@ def main():
         for _ in range(50):
             print("Dataset", _)
             generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
-            dis_data_loader.load_train_data(positive_file, negative_file)
+            dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
             for _ in range(3):
-                dis_data_loader.reset_pointer()
                 #acc_list = []
-                for it in range(dis_data_loader.num_batch):
-                    x_batch, y_batch = dis_data_loader.next_batch()
+                for x_batch, y_batch in dis_dataset:
                     _, acc = discriminator.train(x_batch, y_batch)
                     #acc_list.append(acc)
                 #print(np.mean(acc_list))
@@ -168,8 +155,8 @@ def main():
         # Test
         if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
             generate_samples(generator, BATCH_SIZE, generated_num, eval_file)
-            likelihood_data_loader.create_batches(eval_file)
-            test_loss = target_loss(target_lstm, likelihood_data_loader)
+            likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
+            test_loss = target_loss(target_lstm, likelihood_dataset)
             buffer = 'epoch:\t' + str(total_batch) + '\tnll:\t' + str(test_loss) + '\n'
             print('total_batch: ', total_batch, 'test_loss: ', test_loss)
             log.write(buffer)
@@ -181,13 +168,11 @@ def main():
         print("Discriminator", total_batch)
         for _ in range(5):
             generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
-            dis_data_loader.load_train_data(positive_file, negative_file)
+            dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
 
             for _ in range(3):
-                dis_data_loader.reset_pointer()
                 #acc_list = []
-                for it in range(dis_data_loader.num_batch):
-                    x_batch, y_batch = dis_data_loader.next_batch()
+                for x_batch, y_batch in dis_dataset:
                     _, acc = discriminator.train(x_batch, y_batch)
                     #acc_list.append(acc)
                 #print(np.mean(acc_list))
