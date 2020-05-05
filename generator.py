@@ -70,11 +70,11 @@ class Generator(object):
     def create_optimizer(self, *args, **kwargs):
         return tf.keras.optimizers.Adam(*args, **kwargs)
 
-    def pretrain_step(self, x):
-        # x: [self.batch_size, self.sequence_length]
+    def pretrain(self, dataset, num_epochs, num_steps, **kwargs):
+        # dataset: each element has [self.batch_size, self.sequence_length]
         # outputs are 1 timestep ahead
-
-        pretrain_loss = self.g_model.train_on_batch(np.pad(x[:, 0:-1], ([0, 0], [1, 0]), "constant", constant_values=self.start_token), x)
+        ds = dataset.map(lambda x: (tf.pad(x[:, 0:-1], ([0, 0], [1, 0]), "CONSTANT", self.start_token), x)).repeat(num_epochs)
+        pretrain_loss = self.g_model.fit(ds, verbose=1, epochs=num_epochs, steps_per_epoch=num_steps, **kwargs)
         return pretrain_loss
 
     def train_step(self, x, rewards):

@@ -67,13 +67,14 @@ def target_loss(target_lstm, dataset):
     return np.mean(nll)
 
 
-def pre_train_epoch(trainable_model, dataset):
-    # Pre-train the generator using MLE for one epoch
-    supervised_g_losses = []
-    for batch in dataset:
-        g_loss = trainable_model.pretrain_step(batch)
-        supervised_g_losses.append(g_loss)
-    return np.mean(supervised_g_losses)
+def pretrain_callback(epoch, logs):
+    if epoch % 5 == 0:
+        generate_samples(generator, BATCH_SIZE, generated_num, eval_file)
+        likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
+        test_loss = target_loss(target_lstm, likelihood_dataset)
+        print('pre-train epoch ', epoch, 'test_loss ', test_loss)
+        # buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
+        # log.write(buffer)
 
 
 def main():
@@ -107,16 +108,7 @@ def main():
     if not os.path.exists("generator_pretrained.h5"):
         print('Start pre-training...')
         log.write('pre-training...\n')
-        for epoch in range(PRE_EPOCH_NUM):
-            loss = pre_train_epoch(generator, gen_dataset)
-            print(loss)
-            if epoch % 5 == 0:
-                generate_samples(generator, BATCH_SIZE, generated_num, eval_file)
-                likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
-                test_loss = target_loss(target_lstm, likelihood_dataset)
-                print('pre-train epoch ', epoch, 'test_loss ', test_loss)
-                buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
-                log.write(buffer)
+        generator.pretrain(gen_dataset, PRE_EPOCH_NUM, generated_num // BATCH_SIZE, callbacks=[tf.keras.callbacks.LambdaCallback(on_epoch_end=pretrain_callback)])
         generator.g_model.save_weights("generator_pretrained.h5", save_format="h5")
     else:
         generator.g_model.load_weights("generator_pretrained.h5")
