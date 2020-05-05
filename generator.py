@@ -15,12 +15,8 @@ class Generator(object):
         self.start_token_vec = tf.constant([start_token] * self.batch_size, dtype=tf.int32)
         self.learning_rate = tf.Variable(float(learning_rate), trainable=False)
         self.reward_gamma = reward_gamma
-        self.g_params = []
-        self.d_params = []
         self.temperature = 1.0
         self.grad_clip = 5.0
-
-        self.expected_reward = tf.Variable(tf.zeros([self.sequence_length]))
 
         #with tf.variable_scope('generator'):
         self.g_cell = LSTMCell(self.hidden_dim, kernel_initializer=tf.random_normal_initializer(stddev=0.1), recurrent_initializer=tf.random_normal_initializer(stddev=0.1))
@@ -33,8 +29,8 @@ class Generator(object):
         self.g_optimizer = self.create_optimizer(self.learning_rate, clipnorm=self.grad_clip)
         self.g_model.compile(
             optimizer=self.g_optimizer,
-            loss="sparse_categorical_crossentropy")
-        self.g_params.extend(self.g_model.trainable_weights)
+            loss="sparse_categorical_crossentropy",
+            sample_weight_mode="temporal")
         self.g_embeddings = self.g_model.trainable_weights[0]
 
     @tf.function
@@ -71,6 +67,9 @@ class Generator(object):
         outputs = tf.transpose(gen_x, perm=[1, 0])  # batch_size x seq_length
         return outputs
 
+    def create_optimizer(self, *args, **kwargs):
+        return tf.keras.optimizers.Adam(*args, **kwargs)
+
     def pretrain_step(self, x):
         # x: [self.batch_size, self.sequence_length]
         # outputs are 1 timestep ahead
@@ -78,6 +77,10 @@ class Generator(object):
         pretrain_loss = self.g_model.train_on_batch(np.pad(x[:, 0:-1], ([0, 0], [1, 0]), "constant", constant_values=self.start_token), x)
         return pretrain_loss
 
-
-    def create_optimizer(self, *args, **kwargs):
-        return tf.keras.optimizers.Adam(*args, **kwargs)
+    def train_step(self, x, rewards):
+        # x: [self.batch_size, self.sequence_length]
+        # rewards: [self.batch_size, self.sequence_length] (sample_weight)
+        # outputs are 1 timestep ahead
+        train_loss = self.g_model.train_on_batch(np.pad(x[:, 0:-1], ([0, 0], [1, 0]), "constant", constant_values=self.start_token), x,
+                                                 sample_weight=rewards)
+        return train_loss

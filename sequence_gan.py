@@ -100,7 +100,8 @@ def main():
     target_lstm = TARGET_LSTM(vocab_size, BATCH_SIZE, EMB_DIM, HIDDEN_DIM, SEQ_LENGTH, START_TOKEN, target_params) # The oracle model
 
     discriminator = Discriminator(sequence_length=20, num_classes=2, vocab_size=vocab_size, embedding_size=dis_embedding_dim, 
-                                filter_sizes=dis_filter_sizes, num_filters=dis_num_filters, l2_reg_lambda=dis_l2_reg_lambda)
+                                  filter_sizes=dis_filter_sizes, num_filters=dis_num_filters, dropout_keep_prob=dis_dropout_keep_prob,
+                                  l2_reg_lambda=dis_l2_reg_lambda)
 
     #config = tf.ConfigProto()
     #config.gpu_options.allow_growth = True
@@ -114,46 +115,55 @@ def main():
 
     log = open('save/experiment-log.txt', 'w')
     #  pre-train generator
-    print('Start pre-training...')
-    log.write('pre-training...\n')
-    for epoch in range(PRE_EPOCH_NUM):
-        loss = pre_train_epoch(generator, gen_data_loader)
-        if epoch % 5 == 0:
-            generate_samples(generator, BATCH_SIZE, generated_num, eval_file)
-            likelihood_data_loader.create_batches(eval_file)
-            test_loss = target_loss(target_lstm, likelihood_data_loader)
-            print('pre-train epoch ', epoch, 'test_loss ', test_loss)
-            buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
-            log.write(buffer)
+    if not os.path.exists("generator_pretrained.h5"):
+        print('Start pre-training...')
+        log.write('pre-training...\n')
+        for epoch in range(PRE_EPOCH_NUM):
+            loss = pre_train_epoch(generator, gen_data_loader)
+            print(loss)
+            if epoch % 5 == 0:
+                generate_samples(generator, BATCH_SIZE, generated_num, eval_file)
+                likelihood_data_loader.create_batches(eval_file)
+                test_loss = target_loss(target_lstm, likelihood_data_loader)
+                print('pre-train epoch ', epoch, 'test_loss ', test_loss)
+                buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
+                log.write(buffer)
+        generator.g_model.save_weights("generator_pretrained.h5", save_format="h5")
+    else:
+        generator.g_model.load_weights("generator_pretrained.h5")
 
-    print('Start pre-training discriminator...')
-    # Train 3 epoch on the generated data and do this for 50 times
-    for _ in range(50):
-        generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
-        dis_data_loader.load_train_data(positive_file, negative_file)
-        for _ in range(3):
-            dis_data_loader.reset_pointer()
-            for it in range(dis_data_loader.num_batch):
-                x_batch, y_batch = dis_data_loader.next_batch()
-                feed = {
-                    discriminator.input_x: x_batch,
-                    discriminator.input_y: y_batch,
-                    discriminator.dropout_keep_prob: dis_dropout_keep_prob
-                }
-                _ = sess.run(discriminator.train_op, feed)
+    if not os.path.exists("discriminator_pretrained.h5"):
+        print('Start pre-training discriminator...')
+        # Train 3 epoch on the generated data and do this for 50 times
+        for _ in range(50):
+            print("Dataset", _)
+            generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
+            dis_data_loader.load_train_data(positive_file, negative_file)
+            for _ in range(3):
+                dis_data_loader.reset_pointer()
+                #acc_list = []
+                for it in range(dis_data_loader.num_batch):
+                    x_batch, y_batch = dis_data_loader.next_batch()
+                    _, acc = discriminator.train(x_batch, y_batch)
+                    #acc_list.append(acc)
+                #print(np.mean(acc_list))
+        discriminator.d_model.save_weights("discriminator_pretrained.h5", save_format="h5")
+    else:
+        discriminator.d_model.load_weights("discriminator_pretrained.h5")
 
     rollout = ROLLOUT(generator, 0.8)
 
+    # TODO: Reset optimizer parameters
     print('#########################################################################')
     print('Start Adversarial Training...')
     log.write('adversarial training...\n')
     for total_batch in range(TOTAL_BATCH):
+        print("Generator", total_batch)
         # Train the generator for one step
         for it in range(1):
-            samples = generator.generate(sess)
-            rewards = rollout.get_reward(sess, samples, 16, discriminator)
-            feed = {generator.x: samples, generator.rewards: rewards}
-            _ = sess.run(generator.g_updates, feed_dict=feed)
+            samples = generator.generate()
+            rewards = rollout.get_reward(samples, 16, discriminator)
+            generator.train_step(samples, rewards)
 
         # Test
         if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
@@ -168,20 +178,19 @@ def main():
         rollout.update_params()
 
         # Train the discriminator
+        print("Discriminator", total_batch)
         for _ in range(5):
             generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
             dis_data_loader.load_train_data(positive_file, negative_file)
 
             for _ in range(3):
                 dis_data_loader.reset_pointer()
+                #acc_list = []
                 for it in range(dis_data_loader.num_batch):
                     x_batch, y_batch = dis_data_loader.next_batch()
-                    feed = {
-                        discriminator.input_x: x_batch,
-                        discriminator.input_y: y_batch,
-                        discriminator.dropout_keep_prob: dis_dropout_keep_prob
-                    }
-                    _ = sess.run(discriminator.train_op, feed)
+                    _, acc = discriminator.train(x_batch, y_batch)
+                    #acc_list.append(acc)
+                #print(np.mean(acc_list))
 
     log.close()
 
