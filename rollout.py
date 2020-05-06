@@ -27,7 +27,7 @@ class ROLLOUT(object):
         self.g_model.set_weights(lstm.g_model.get_weights())
 
     @tf.function
-    def generate(self, x_orig, given_num):
+    def generate_one_batch(self, x_orig, given_num):
         # Initial states
         h0 = c0 = tf.zeros([self.batch_size, self.hidden_dim])
         h0 = [h0, c0]
@@ -81,7 +81,7 @@ class ROLLOUT(object):
         for i in range(rollout_num):
             # given_num between 1 to sequence_length - 1 for a part completed sentence
             for given_num in tf.range(1, self.sequence_length):
-                samples = self.generate(input_x, given_num)
+                samples = self.generate_one_batch(input_x, given_num)
                 ypred_for_auc = discriminator.d_model(samples).numpy()
                 ypred = ypred_for_auc[:, 1] # prob for outputting 1 (True)
                 if i == 0:

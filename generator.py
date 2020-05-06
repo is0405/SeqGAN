@@ -33,7 +33,7 @@ class Generator(object):
         self.g_embeddings = self.g_model.trainable_weights[0]
 
     @tf.function
-    def generate(self):
+    def generate_one_batch(self):
         # Initial states
         h0 = c0 = tf.zeros([self.batch_size, self.hidden_dim])
         h0 = [h0, c0]
@@ -61,6 +61,14 @@ class Generator(object):
         gen_x = self.gen_x.stack()  # seq_length x batch_size
         outputs = tf.transpose(gen_x, perm=[1, 0])  # batch_size x seq_length
         return outputs
+
+    def generate_samples(self, generated_num, output_file):
+        # Generate Samples
+        with open(output_file, 'w') as fout:
+            for _ in range(generated_num // self.batch_size):
+                generated_samples = self.generate_one_batch().numpy()
+                for poem in generated_samples:
+                    print(' '.join([str(x) for x in poem]), file=fout)
 
     def create_optimizer(self, *args, **kwargs):
         return tf.keras.optimizers.Adam(*args, **kwargs)

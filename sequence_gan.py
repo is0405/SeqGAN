@@ -44,19 +44,6 @@ negative_file = 'save/generator_sample.txt'
 eval_file = 'save/eval_file.txt'
 generated_num = 10000
 
-
-def generate_samples(trainable_model, batch_size, generated_num, output_file):
-    # Generate Samples
-    generated_samples = []
-    for _ in range(generated_num // batch_size):
-        generated_samples.extend(trainable_model.generate().numpy())
-
-    with open(output_file, 'w') as fout:
-        for poem in generated_samples:
-            buffer = ' '.join([str(x) for x in poem]) + '\n'
-            fout.write(buffer)
-
-
 def target_loss(target_lstm, dataset):
     # target_loss means the oracle negative log-likelihood tested with the oracle model "target_lstm"
     # For more details, please see the Section 4 in https://arxiv.org/abs/1609.05473
@@ -66,10 +53,9 @@ def target_loss(target_lstm, dataset):
         nll.append(g_loss)
     return np.mean(nll)
 
-
 def pretrain_callback(epoch, logs):
     if epoch % 5 == 0:
-        generate_samples(generator, BATCH_SIZE, generated_num, eval_file)
+        generator.generate_samples(generated_num, eval_file)
         likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
         test_loss = target_loss(target_lstm, likelihood_dataset)
         print('pre-train epoch ', epoch, 'test_loss ', test_loss)
@@ -100,7 +86,7 @@ def main():
 
     # First, use the oracle model to provide the positive examples, which are sampled from the oracle data distribution
     if not os.path.exists(positive_file):
-        generate_samples(target_lstm, BATCH_SIZE, generated_num, positive_file)
+        target_lstm.generate_samples(generated_num, positive_file)
     gen_dataset = dataset_for_generator(positive_file, BATCH_SIZE)
 
     log = open('save/experiment-log.txt', 'w')
@@ -118,7 +104,7 @@ def main():
         # Train 3 epoch on the generated data and do this for 50 times
         for _ in range(50):
             print("Dataset", _)
-            generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
+            generator.generate_samples(generated_num, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
         discriminator.d_model.save_weights("discriminator_pretrained.h5", save_format="h5")
@@ -135,13 +121,13 @@ def main():
         print("Generator", total_batch)
         # Train the generator for one step
         for it in range(1):
-            samples = generator.generate()
+            samples = generator.generate_one_batch()
             rewards = rollout.get_reward(samples, 16, discriminator)
             generator.train_step(samples, rewards)
 
         # Test
         if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
-            generate_samples(generator, BATCH_SIZE, generated_num, eval_file)
+            generator.generate_samples(generated_num, eval_file)
             likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
             test_loss = target_loss(target_lstm, likelihood_dataset)
             buffer = 'epoch:\t' + str(total_batch) + '\tnll:\t' + str(test_loss) + '\n'
@@ -154,7 +140,7 @@ def main():
         # Train the discriminator
         print("Discriminator", total_batch)
         for _ in range(5):
-            generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
+            generator.generate_samples(generated_num, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
     log.close()

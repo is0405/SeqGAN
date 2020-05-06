@@ -170,7 +170,7 @@ class TARGET_LSTM(object):
         return pretrain_loss        
     
     @tf.function
-    def generate(self):
+    def generate_one_batch(self):
         # h0 = np.random.normal(size=self.hidden_dim)
 
         # initial states
@@ -199,6 +199,14 @@ class TARGET_LSTM(object):
         gen_x = gen_x.stack()  # seq_length x batch_size
         outputs = tf.transpose(gen_x, perm=[1, 0])  # batch_size x seq_length
         return outputs
+
+    def generate_samples(self, generated_num, output_file):
+        # Generate Samples
+        with open(output_file, 'w') as fout:
+            for _ in range(generated_num // self.batch_size):
+                generated_samples = self.generate_one_batch().numpy()
+                for poem in generated_samples:
+                    print(' '.join([str(x) for x in poem]), file=fout)
 
     def init_matrix(self, shape):
         return tf.random_normal(shape, stddev=1.0)
