@@ -120,12 +120,7 @@ def main():
             print("Dataset", _)
             generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
-            for _ in range(3):
-                #acc_list = []
-                for x_batch, y_batch in dis_dataset:
-                    _, acc = discriminator.train(x_batch, y_batch)
-                    #acc_list.append(acc)
-                #print(np.mean(acc_list))
+            discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
         discriminator.d_model.save_weights("discriminator_pretrained.h5", save_format="h5")
     else:
         discriminator.d_model.load_weights("discriminator_pretrained.h5")
@@ -161,14 +156,7 @@ def main():
         for _ in range(5):
             generate_samples(generator, BATCH_SIZE, generated_num, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
-
-            for _ in range(3):
-                #acc_list = []
-                for x_batch, y_batch in dis_dataset:
-                    _, acc = discriminator.train(x_batch, y_batch)
-                    #acc_list.append(acc)
-                #print(np.mean(acc_list))
-
+            discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
     log.close()
 
 

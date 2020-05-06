@@ -55,7 +55,6 @@ class Discriminator(object):
         d_optimizer = tf.keras.optimizers.Adam(1e-4)
         self.d_model.compile(optimizer=d_optimizer, loss="categorical_crossentropy", metrics=["accuracy"])
 
-    def train(self, input_x, input_y):
-        # input_x: [None, sequence_length]
-        # input_y: [None, num_classes]
-        return discriminator.d_model.train_on_batch(x_batch, y_batch)
+    def train(self, dataset, num_epochs, num_steps, **kwargs):
+        # dataset: ([None, sequence_length], [None, num_classes])
+        return self.d_model.fit(dataset.repeat(num_epochs), verbose=1, epochs=num_epochs, steps_per_epoch=num_steps, **kwargs)
