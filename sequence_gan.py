@@ -134,6 +134,9 @@ def main():
             generator.generate_samples(generated_num, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
+    generator.g_model.save_weights("generator.h5")
+    discriminator.d_model.save_weights("discriminator.h5")
+
     log.close()
 
 
