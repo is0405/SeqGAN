@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Embedding, Dense, RNN, LSTMCell
+from tensorflow.keras.layers import Input, Embedding, Dense, LSTM
 import numpy as np
 
 class Generator(object):
@@ -19,11 +19,10 @@ class Generator(object):
         self.grad_clip = 5.0
 
         #with tf.variable_scope('generator'):
-        self.g_cell = LSTMCell(self.hidden_dim, kernel_initializer=tf.random_normal_initializer(stddev=0.1), recurrent_initializer=tf.random_normal_initializer(stddev=0.1))
         self.g_model = tf.keras.models.Sequential([
             Input((self.sequence_length,), dtype=tf.int32),
             Embedding(self.num_emb, self.emb_dim, embeddings_initializer=tf.random_normal_initializer(stddev=0.1)),
-            RNN(self.g_cell, return_sequences=True),
+            LSTM(self.hidden_dim, kernel_initializer=tf.random_normal_initializer(stddev=0.1), recurrent_initializer=tf.random_normal_initializer(stddev=0.1), return_sequences=True),
             Dense(self.num_emb, kernel_initializer=tf.random_normal_initializer(stddev=0.1), activation="softmax")
         ])
         self.g_optimizer = self.create_optimizer(self.learning_rate, clipnorm=self.grad_clip)
@@ -45,7 +44,7 @@ class Generator(object):
         def _g_recurrence(i, x_t, h_tm1, gen_x):
             # o_t: batch x vocab, probability
             # h_t: hidden_memory_tuple
-            o_t, h_t = self.g_cell(x_t, h_tm1, training=False)
+            o_t, h_t = self.g_model.layers[1].cell(x_t, h_tm1, training=False) # layers[1]: LSTM
             o_t = self.g_model.layers[2](o_t) # layers[2]: Dense
             log_prob = tf.math.log(o_t)
             next_token = tf.cast(tf.reshape(tf.random.categorical(log_prob, 1), [self.batch_size]), tf.int32)

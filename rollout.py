@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.keras.layers import Input, Embedding, Dense, LSTM
 import numpy as np
 
 
@@ -16,11 +17,10 @@ class ROLLOUT(object):
         self.learning_rate = self.lstm.learning_rate
 
         #with tf.variable_scope('generator'):
-        self.g_cell = LSTMCell(self.hidden_dim, kernel_initializer=tf.random_normal_initializer(stddev=0.1), recurrent_initializer=tf.random_normal_initializer(stddev=0.1))
         self.g_model = tf.keras.models.Sequential([
             Input((self.sequence_length,), dtype=tf.int32),
             Embedding(self.num_emb, self.emb_dim, embeddings_initializer=tf.random_normal_initializer(stddev=0.1)),
-            RNN(self.g_cell, return_sequences=True),
+            LSTM(self.hidden_dim, kernel_initializer=tf.random_normal_initializer(stddev=0.1), recurrent_initializer=tf.random_normal_initializer(stddev=0.1), return_sequences=True),
             Dense(self.num_emb, kernel_initializer=tf.random_normal_initializer(stddev=0.1), activation="softmax")
         ])
         self.g_embeddings = self.g_model.trainable_weights[0]
@@ -43,7 +43,7 @@ class ROLLOUT(object):
         # When current index i < given_num, use the provided tokens as the input at each time step
         def _g_recurrence_1(i, x_t, h_tm1, given_num, gen_x):
             # h_t: hidden_memory_tuple
-            _, h_t = self.g_cell(x_t, h_tm1, training=False)
+            _, h_t = self.g_model.layers[1].cell(x_t, h_tm1, training=False) # layers[1]: LSTM
             x_tp1 = ta_emb_x.read(i)
             next_token = ta_x.read(i)
             gen_x = gen_x.write(i, next_token)  # indices, batch_size
@@ -53,7 +53,7 @@ class ROLLOUT(object):
         def _g_recurrence_2(i, x_t, h_tm1, given_num, gen_x):
             # o_t: batch x vocab, probability
             # h_t: hidden_memory_tuple
-            o_t, h_t = self.g_cell(x_t, h_tm1, training=False)
+            o_t, h_t = self.g_model.layers[1].cell(x_t, h_tm1, training=False) # layers[1]: LSTM
             o_t = self.g_model.layers[2](o_t) # layers[2]: Dense
             log_prob = tf.math.log(o_t)
             next_token = tf.cast(tf.reshape(tf.random.categorical(log_prob, 1), [self.batch_size]), tf.int32)
