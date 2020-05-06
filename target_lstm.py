@@ -115,27 +115,23 @@ class TARGET_LSTM(object):
         h0 = tf.zeros([self.batch_size, self.hidden_dim])
         h0 = tf.stack([h0, h0])
 
-        gen_o = tf.TensorArray(dtype=tf.float32, size=self.sequence_length,
-                               dynamic_size=False, infer_shape=True)
         gen_x = tf.TensorArray(dtype=tf.int32, size=self.sequence_length,
                                dynamic_size=False, infer_shape=True)
 
-        def _g_recurrence(i, x_t, h_tm1, gen_o, gen_x):
+        def _g_recurrence(i, x_t, h_tm1, gen_x):
             h_t = self.g_recurrent_unit(x_t, h_tm1)  # hidden_memory_tuple
             o_t = self.g_output_unit(h_t)  # batch x vocab , logits not prob
             log_prob = tf.math.log(tf.nn.softmax(o_t))
             next_token = tf.cast(tf.reshape(tf.random.categorical(log_prob, 1), [self.batch_size]), tf.int32)
             x_tp1 = tf.nn.embedding_lookup(self.g_embeddings, next_token)  # batch x emb_dim
-            gen_o = gen_o.write(i, tf.reduce_sum(tf.multiply(tf.one_hot(next_token, self.num_emb, 1.0, 0.0),
-                                                             tf.nn.softmax(o_t)), 1))  # [batch_size] , prob
             gen_x = gen_x.write(i, next_token)  # indices, batch_size
-            return i + 1, x_tp1, h_t, gen_o, gen_x
+            return i + 1, x_tp1, h_t, gen_x
 
-        _, _, _, gen_o, gen_x = tf.while_loop(
-            cond=lambda i, _1, _2, _3, _4: i < self.sequence_length,
+        _, _, _, gen_x = tf.while_loop(
+            cond=lambda i, _1, _2, _3: i < self.sequence_length,
             body=_g_recurrence,
             loop_vars=(tf.constant(0, dtype=tf.int32),
-                       tf.nn.embedding_lookup(self.g_embeddings, self.start_token), h0, gen_o, gen_x))
+                       tf.nn.embedding_lookup(self.g_embeddings, self.start_token), h0, gen_x))
 
         gen_x = gen_x.stack()  # seq_length x batch_size
         gen_x = tf.transpose(gen_x, perm=[1, 0])  # batch_size x seq_length
@@ -181,28 +177,23 @@ class TARGET_LSTM(object):
         h0 = tf.zeros([self.batch_size, self.hidden_dim])
         h0 = tf.stack([h0, h0])
 
-        # generator on initial randomness
-        gen_o = tf.TensorArray(dtype=tf.float32, size=self.sequence_length,
-                                             dynamic_size=False, infer_shape=True)
         gen_x = tf.TensorArray(dtype=tf.int32, size=self.sequence_length,
                                              dynamic_size=False, infer_shape=True)
 
-        def _g_recurrence(i, x_t, h_tm1, gen_o, gen_x):
+        def _g_recurrence(i, x_t, h_tm1, gen_x):
             h_t = self.g_recurrent_unit(x_t, h_tm1)  # hidden_memory_tuple
             o_t = self.g_output_unit(h_t)  # batch x vocab , logits not prob
             log_prob = tf.math.log(tf.nn.softmax(o_t))
             next_token = tf.cast(tf.reshape(tf.random.categorical(log_prob, 1), [self.batch_size]), tf.int32)
             x_tp1 = tf.nn.embedding_lookup(self.g_embeddings, next_token)  # batch x emb_dim
-            gen_o = gen_o.write(i, tf.reduce_sum(tf.multiply(tf.one_hot(next_token, self.num_emb, 1.0, 0.0),
-                                                             tf.nn.softmax(o_t)), 1))  # [batch_size] , prob
             gen_x = gen_x.write(i, next_token)  # indices, batch_size
-            return i + 1, x_tp1, h_t, gen_o, gen_x
+            return i + 1, x_tp1, h_t, gen_x
 
-        _, _, _, gen_o, gen_x = tf.while_loop(
-            cond=lambda i, _1, _2, _3, _4: i < self.sequence_length,
+        _, _, _, gen_x = tf.while_loop(
+            cond=lambda i, _1, _2, _3: i < self.sequence_length,
             body=_g_recurrence,
             loop_vars=(tf.constant(0, dtype=tf.int32),
-                       tf.nn.embedding_lookup(self.g_embeddings, self.start_token), h0, gen_o, gen_x)
+                       tf.nn.embedding_lookup(self.g_embeddings, self.start_token_vec), h0, gen_x)
             )
 
         gen_x = gen_x.stack()  # seq_length x batch_size
