@@ -34,11 +34,12 @@ class TARGET_LSTM(object):
         self.g_model.set_weights(weights)
         self.g_embeddings = self.g_model.trainable_weights[0]
 
-    def pretrain_loss(self, x):
-        # x: Tensor [self.batch_size, self.sequence_length]
+    def target_loss(self, dataset):
+        # dataset: each element has [self.batch_size, self.sequence_length]
         # outputs are 1 timestep ahead
-        pretrain_loss = self.g_model.test_on_batch(tf.pad(x[:, 0:-1], ([0, 0], [1, 0]), "CONSTANT", self.start_token), x)
-        return pretrain_loss
+        ds = dataset.map(lambda x: (tf.pad(x[:, 0:-1], ([0, 0], [1, 0]), "CONSTANT", self.start_token), x))
+        loss = self.g_model.evaluate(ds, verbose=1)
+        return loss
     
     @tf.function
     def generate_one_batch(self):

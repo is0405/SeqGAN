@@ -44,20 +44,11 @@ negative_file = 'save/generator_sample.txt'
 eval_file = 'save/eval_file.txt'
 generated_num = 10000
 
-def target_loss(target_lstm, dataset):
-    # target_loss means the oracle negative log-likelihood tested with the oracle model "target_lstm"
-    # For more details, please see the Section 4 in https://arxiv.org/abs/1609.05473
-    nll = []
-    for batch in dataset:
-        g_loss = target_lstm.pretrain_loss(batch)
-        nll.append(g_loss)
-    return np.mean(nll)
-
 def pretrain_callback(epoch, logs):
     if epoch % 5 == 0:
         generator.generate_samples(generated_num, eval_file)
         likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
-        test_loss = target_loss(target_lstm, likelihood_dataset)
+        test_loss = target_lstm.target_loss(likelihood_dataset)
         print('pre-train epoch ', epoch, 'test_loss ', test_loss)
         # buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
         # log.write(buffer)
@@ -129,7 +120,7 @@ def main():
         if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
             generator.generate_samples(generated_num, eval_file)
             likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
-            test_loss = target_loss(target_lstm, likelihood_dataset)
+            test_loss = target_lstm.target_loss(likelihood_dataset)
             buffer = 'epoch:\t' + str(total_batch) + '\tnll:\t' + str(test_loss) + '\n'
             print('total_batch: ', total_batch, 'test_loss: ', test_loss)
             log.write(buffer)
