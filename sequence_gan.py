@@ -44,16 +44,6 @@ negative_file = 'save/generator_sample.txt'
 eval_file = 'save/eval_file.txt'
 generated_num = 10000
 
-def pretrain_callback(epoch, logs):
-    if epoch % 5 == 0:
-        generator.generate_samples(generated_num, eval_file)
-        likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
-        test_loss = target_lstm.target_loss(likelihood_dataset)
-        print('pre-train epoch ', epoch, 'test_loss ', test_loss)
-        # buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
-        # log.write(buffer)
-
-
 def main():
     random.seed(SEED)
     np.random.seed(SEED)
@@ -74,6 +64,15 @@ def main():
     #config.gpu_options.allow_growth = True
     #sess = tf.Session(config=config)
     #sess.run(tf.global_variables_initializer())
+
+    def pretrain_callback(epoch, logs):
+        if epoch % 5 == 0:
+            generator.generate_samples(generated_num, eval_file)
+            likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
+            test_loss = target_lstm.target_loss(likelihood_dataset)
+            print('pre-train epoch ', epoch, 'test_loss ', test_loss)
+            # buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
+            # log.write(buffer)
 
     # First, use the oracle model to provide the positive examples, which are sampled from the oracle data distribution
     if not os.path.exists(positive_file):
