@@ -3,7 +3,11 @@ from tensorflow.keras.layers import Input, Embedding, Dense, LSTM
 import numpy as np
 
 class TARGET_LSTM(object):
-    def __init__(self, num_emb, batch_size, emb_dim, hidden_dim, sequence_length, start_token, params):
+    def __init__(self, batch_size, sequence_length, start_token, params):
+        # Model sizes are determined by the parameter file
+        num_emb = params[0].shape[0]
+        emb_dim = params[0].shape[1]
+        hidden_dim = params[1].shape[1]
         self.num_emb = num_emb
         self.batch_size = batch_size
         self.emb_dim = emb_dim
