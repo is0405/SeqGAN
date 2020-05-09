@@ -87,3 +87,9 @@ class Generator(object):
         train_loss = self.g_model.train_on_batch(np.pad(x[:, 0:-1], ([0, 0], [1, 0]), "constant", constant_values=self.start_token), x,
                                                  sample_weight=rewards)
         return train_loss
+
+    def save(self, filename):
+        self.g_model.save_weights(filename, save_format="h5")
+
+    def load(self, filename):
+        self.g_model.load_weights(filename)

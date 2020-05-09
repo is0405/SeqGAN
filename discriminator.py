@@ -58,3 +58,9 @@ class Discriminator(object):
     def train(self, dataset, num_epochs, num_steps, **kwargs):
         # dataset: ([None, sequence_length], [None, num_classes])
         return self.d_model.fit(dataset.repeat(num_epochs), verbose=1, epochs=num_epochs, steps_per_epoch=num_steps, **kwargs)
+
+    def save(self, filename):
+        self.d_model.save_weights(filename, save_format="h5")
+
+    def load(self, filename):
+        self.d_model.load_weights(filename)

@@ -85,9 +85,9 @@ def main():
         print('Start pre-training...')
         log.write('pre-training...\n')
         generator.pretrain(gen_dataset, PRE_EPOCH_NUM, generated_num // BATCH_SIZE, callbacks=[tf.keras.callbacks.LambdaCallback(on_epoch_end=pretrain_callback)])
-        generator.g_model.save_weights("generator_pretrained.h5", save_format="h5")
+        generator.save("generator_pretrained.h5")
     else:
-        generator.g_model.load_weights("generator_pretrained.h5")
+        generator.load("generator_pretrained.h5")
 
     if not os.path.exists("discriminator_pretrained.h5"):
         print('Start pre-training discriminator...')
@@ -97,9 +97,9 @@ def main():
             generator.generate_samples(generated_num, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
-        discriminator.d_model.save_weights("discriminator_pretrained.h5", save_format="h5")
+        discriminator.save("discriminator_pretrained.h5")
     else:
-        discriminator.d_model.load_weights("discriminator_pretrained.h5")
+        discriminator.load("discriminator_pretrained.h5")
 
     rollout = ROLLOUT(generator, 0.8)
 
@@ -133,8 +133,8 @@ def main():
             generator.generate_samples(generated_num, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
-    generator.g_model.save_weights("generator.h5")
-    discriminator.d_model.save_weights("discriminator.h5")
+    generator.save("generator.h5")
+    discriminator.save("discriminator.h5")
 
     log.close()
 
