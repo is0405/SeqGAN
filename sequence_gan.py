@@ -52,6 +52,11 @@ def main():
 
     vocab_size = 5000
 
+    physical_devices = tf.config.experimental.list_physical_devices("GPU")
+    if len(physical_devices) > 0:
+        for dev in physical_devices:
+            tf.config.experimental.set_memory_growth(dev, True)
+
     generator = Generator(vocab_size, BATCH_SIZE, EMB_DIM, HIDDEN_DIM, SEQ_LENGTH, START_TOKEN)
     target_params = pickle.load(open('save/target_params.pkl', 'rb'), encoding="bytes")
     target_lstm = TARGET_LSTM(BATCH_SIZE, SEQ_LENGTH, START_TOKEN, target_params) # The oracle model
@@ -59,11 +64,6 @@ def main():
     discriminator = Discriminator(sequence_length=20, num_classes=2, vocab_size=vocab_size, embedding_size=dis_embedding_dim, 
                                   filter_sizes=dis_filter_sizes, num_filters=dis_num_filters, dropout_keep_prob=dis_dropout_keep_prob,
                                   l2_reg_lambda=dis_l2_reg_lambda)
-
-    #config = tf.ConfigProto()
-    #config.gpu_options.allow_growth = True
-    #sess = tf.Session(config=config)
-    #sess.run(tf.global_variables_initializer())
 
     def pretrain_callback(epoch, logs):
         if epoch % 5 == 0:
