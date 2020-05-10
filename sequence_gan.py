@@ -61,30 +61,20 @@ def main():
     target_params = pickle.load(open('save/target_params_py3.pkl', 'rb'))
     target_lstm = TARGET_LSTM(BATCH_SIZE, SEQ_LENGTH, START_TOKEN, target_params) # The oracle model
 
-    discriminator = Discriminator(sequence_length=20, num_classes=2, vocab_size=vocab_size, embedding_size=dis_embedding_dim, 
+    discriminator = Discriminator(sequence_length=SEQ_LENGTH, num_classes=2, vocab_size=vocab_size, embedding_size=dis_embedding_dim,
                                   filter_sizes=dis_filter_sizes, num_filters=dis_num_filters, dropout_keep_prob=dis_dropout_keep_prob,
                                   l2_reg_lambda=dis_l2_reg_lambda)
 
-    def pretrain_callback(epoch, logs):
-        if epoch % 5 == 0:
-            generator.generate_samples(generated_num, eval_file)
-            likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
-            test_loss = target_lstm.target_loss(likelihood_dataset)
-            print('pre-train epoch ', epoch, 'test_loss ', test_loss)
-            # buffer = 'epoch:\t'+ str(epoch) + '\tnll:\t' + str(test_loss) + '\n'
-            # log.write(buffer)
-
     # First, use the oracle model to provide the positive examples, which are sampled from the oracle data distribution
     if not os.path.exists(positive_file):
-        target_lstm.generate_samples(generated_num, positive_file)
+        target_lstm.generate_samples(generated_num // BATCH_SIZE, positive_file)
     gen_dataset = dataset_for_generator(positive_file, BATCH_SIZE)
-
     log = open('save/experiment-log.txt', 'w')
     #  pre-train generator
     if not os.path.exists("generator_pretrained.h5"):
         print('Start pre-training...')
         log.write('pre-training...\n')
-        generator.pretrain(gen_dataset, PRE_EPOCH_NUM, generated_num // BATCH_SIZE, callbacks=[tf.keras.callbacks.LambdaCallback(on_epoch_end=pretrain_callback)])
+        generator.pretrain(gen_dataset, target_lstm, PRE_EPOCH_NUM, generated_num // BATCH_SIZE, eval_file)
         generator.save("generator_pretrained.h5")
     else:
         generator.load("generator_pretrained.h5")
@@ -94,7 +84,7 @@ def main():
         # Train 3 epoch on the generated data and do this for 50 times
         for _ in range(50):
             print("Dataset", _)
-            generator.generate_samples(generated_num, negative_file)
+            generator.generate_samples(generated_num // BATCH_SIZE, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
         discriminator.save("discriminator_pretrained.h5")
@@ -103,7 +93,6 @@ def main():
 
     rollout = ROLLOUT(generator, 0.8)
 
-    # TODO: Reset optimizer parameters
     print('#########################################################################')
     print('Start Adversarial Training...')
     log.write('adversarial training...\n')
@@ -117,7 +106,7 @@ def main():
 
         # Test
         if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
-            generator.generate_samples(generated_num, eval_file)
+            generator.generate_samples(generated_num // BATCH_SIZE, eval_file)
             likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
             test_loss = target_lstm.target_loss(likelihood_dataset)
             buffer = 'epoch:\t' + str(total_batch) + '\tnll:\t' + str(test_loss) + '\n'
@@ -130,7 +119,7 @@ def main():
         # Train the discriminator
         print("Discriminator", total_batch)
         for _ in range(5):
-            generator.generate_samples(generated_num, negative_file)
+            generator.generate_samples(generated_num // BATCH_SIZE, negative_file)
             dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
     generator.save("generator.h5")

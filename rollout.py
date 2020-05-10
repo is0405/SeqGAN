@@ -1,29 +1,12 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Embedding, Dense, LSTM
 import numpy as np
+from rnnlm import RNNLM
 
-
-class ROLLOUT(object):
+class ROLLOUT(RNNLM):
     def __init__(self, lstm, update_rate):
+        super(ROLLOUT, self).__init__(lstm.num_emb, lstm.batch_size, lstm.emb_dim, lstm.hidden_dim, lstm.sequence_length, lstm.start_token)
         self.lstm = lstm
         self.update_rate = update_rate
-
-        self.num_emb = self.lstm.num_emb
-        self.batch_size = self.lstm.batch_size
-        self.emb_dim = self.lstm.emb_dim
-        self.hidden_dim = self.lstm.hidden_dim
-        self.sequence_length = self.lstm.sequence_length
-        self.start_token_vec = tf.identity(self.lstm.start_token_vec)
-        self.learning_rate = self.lstm.learning_rate
-
-        #with tf.variable_scope('generator'):
-        self.g_model = tf.keras.models.Sequential([
-            Input((self.sequence_length,), dtype=tf.int32),
-            Embedding(self.num_emb, self.emb_dim, embeddings_initializer=tf.random_normal_initializer(stddev=0.1)),
-            LSTM(self.hidden_dim, kernel_initializer=tf.random_normal_initializer(stddev=0.1), recurrent_initializer=tf.random_normal_initializer(stddev=0.1), return_sequences=True),
-            Dense(self.num_emb, kernel_initializer=tf.random_normal_initializer(stddev=0.1), activation="softmax")
-        ])
-        self.g_embeddings = self.g_model.trainable_weights[0]
         self.g_model.set_weights(lstm.g_model.get_weights())
 
     @tf.function
