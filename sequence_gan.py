@@ -19,7 +19,7 @@ import pickle
 ######################################################################################
 EMB_DIM = 32 # embedding dimension
 HIDDEN_DIM = 32 # hidden state dimension of lstm cell
-SEQ_LENGTH = 20 # sequence length
+SEQ_LENGTH = 120#20 # sequence length
 START_TOKEN = 0
 PRE_EPOCH_NUM = 120 # supervise (maximum likelihood estimation) epochs
 SEED = 88
@@ -38,7 +38,7 @@ dis_batch_size = 64
 #########################################################################################
 #  Basic Training Parameters
 #########################################################################################
-TOTAL_BATCH = 200
+TOTAL_BATCH = 10#200
 positive_file = 'save/real_data.txt'
 negative_file = 'save/generator_sample.txt'
 eval_file = 'save/eval_file.txt'
@@ -50,7 +50,7 @@ def main():
     tf.random.set_seed(SEED)
     assert START_TOKEN == 0
 
-    vocab_size = 5000
+    vocab_size = 100000#5000
 
     physical_devices = tf.config.experimental.list_physical_devices("GPU")
     if len(physical_devices) > 0:
@@ -68,7 +68,7 @@ def main():
     # First, use the oracle model to provide the positive examples, which are sampled from the oracle data distribution
     if not os.path.exists(positive_file):
         target_lstm.generate_samples(generated_num // BATCH_SIZE, positive_file)
-    gen_dataset = dataset_for_generator(positive_file, BATCH_SIZE)
+    gen_dataset = dataset_for_generator(positive_file, BATCH_SIZE, SEQ_LENGTH)
     log = open('save/experiment-log.txt', 'w')
     #  pre-train generator
     if not os.path.exists("generator_pretrained.h5"):
@@ -85,7 +85,7 @@ def main():
         for _ in range(50):
             print("Dataset", _)
             generator.generate_samples(generated_num // BATCH_SIZE, negative_file)
-            dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
+            dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE, SEQ_LENGTH)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
         discriminator.save("discriminator_pretrained.h5")
     else:
@@ -107,7 +107,7 @@ def main():
         # Test
         if total_batch % 5 == 0 or total_batch == TOTAL_BATCH - 1:
             generator.generate_samples(generated_num // BATCH_SIZE, eval_file)
-            likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE)
+            likelihood_dataset = dataset_for_generator(eval_file, BATCH_SIZE, SEQ_LENGTH)
             test_loss = target_lstm.target_loss(likelihood_dataset)
             buffer = 'epoch:\t' + str(total_batch) + '\tnll:\t' + str(test_loss) + '\n'
             print('total_batch: ', total_batch, 'test_loss: ', test_loss)
@@ -120,7 +120,7 @@ def main():
         print("Discriminator", total_batch)
         for _ in range(5):
             generator.generate_samples(generated_num // BATCH_SIZE, negative_file)
-            dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE)
+            dis_dataset = dataset_for_discriminator(positive_file, negative_file, BATCH_SIZE, SEQ_LENGTH)
             discriminator.train(dis_dataset, 3, (generated_num // BATCH_SIZE) * 2)
     generator.save("generator.h5")
     discriminator.save("discriminator.h5")
